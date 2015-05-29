@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -eu
+
+function abs_path {
+  (cd "$(dirname "$1")" &>/dev/null && printf "%s/%s" "`pwd`" "${1##*/}")
+}
+
+GO_TESTS=""
+SH_TESTS=""
+parse_args() {
+  while (($#)); do
+    case "$1" in
+      --all)
+        GO_TESTS="./..."
+        SH_TESTS=$(abs_path "$(dirname "$0")/../test/*_test.sh")
+        return 0
+        ;;
+      *.go)
+        GO_TESTS="$GO_TESTS $(abs_path "$1")"
+        ;;
+      *_test.sh)
+        SH_TESTS="$SH_TESTS $(abs_path "$1")"
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+run() {
+  echo
+  echo "$@"
+  echo "====================================="
+  "$@"
+}
+
+go_test() {
+  [ $# -eq 0 ] && return 0
+  run go test "$@"
+}
+
+smoke_test() {
+  [ $# -eq 0 ] && return 0
+  (
+    exec 5>&1
+    make_result=$(set -o pipefail; run make | tee >(cat - >&5))
+    run cd test
+    (echo "$make_result" | grep -q "^make: Nothing to be done for 'all'.$") || run ./setup.sh
+    run ./run_all.sh "$@"
+  )
+}
+
+parse_args "$@"
+cd "$(dirname "$0")/.."
+
+if [ $# -eq 0 ]; then
+  go_test ./...
+else
+  go_test $GO_TESTS
+  smoke_test $SH_TESTS
+fi
