@@ -28,7 +28,7 @@ usage() {
     echo "weave launch       [-password <password>] [-nickname <nickname>] [-nodiscovery]"
     echo "                       [-iprange <cidr>] <peer> ..."
     echo "weave launch-dns   <cidr>"
-    echo "weave launch-proxy [-H <docker_endpoint>] [--with-dns] [--with-ipam]"
+    echo "weave launch-proxy [-L <bind_address>] [-H <docker_endpoint>] [--with-dns] [--with-ipam]"
     echo "weave connect      [--replace] [<peer> ...]"
     echo "weave forget       <peer> ..."
     echo "weave run          [--with-dns] [<cidr> ...] <docker run args> ..."
@@ -747,53 +747,6 @@ get_ipam_cidr() {
     fi
 }
 
-######################################################################
-# weave proxy helpers
-######################################################################
-
-
-# TODO: Handle relative paths for args
-# TODO: Handle args with spaces
-tls_arg() {
-    filename=${3:-$2}
-    PROXY_VOLUMES="$PROXY_VOLUMES -v $1:/home/weave/tls/$filename.pem"
-    PROXY_ARGS="$PROXY_ARGS --tls$2 /home/weave/tls/$filename.pem"
-}
-
-proxy_args() {
-    PROXY_VOLUMES=""
-    PROXY_ARGS=""
-    while [ $# -gt 0 ]; do
-        case "$1" in
-          --tlscacert)
-            shift
-            tls_arg "$1" cacert ca
-            ;;
-          --tlscacert=*)
-            tls_arg "${1#*=}" cacert ca
-            ;;
-          --tlscert)
-            shift
-            tls_arg "$1" cert
-            ;;
-          --tlscert=*)
-            tls_arg "${1#*=}" cert
-            ;;
-          --tlskey)
-            shift
-            tls_arg "$1" key
-            ;;
-          --tlskey=*)
-            tls_arg "${1#*=}" key
-            ;;
-          *)
-            PROXY_ARGS="$PROXY_ARGS $1"
-            ;;
-        esac
-        shift
-    done
-}
-
 ##########################################################################################
 
 [ $(id -u) = 0 ] || {
@@ -928,17 +881,12 @@ case "$COMMAND" in
         # Set WEAVEPROXY_DOCKER_ARGS in the environment in order to supply
         # additional parameters, such as resource limits, to docker
         # when launching the weaveproxy container.
-        proxy_args "$@"
-        PROXY_CONTAINER=$(docker run --privileged -d --name=$PROXY_CONTAINER_NAME --net=host \
-            -p $PROXY_PORT:$PROXY_PORT/tcp \
-            $PROXY_VOLUMES \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v /proc:/hostproc \
-            -e PROCFS=/hostproc \
-            --entrypoint=/home/weave/weaveproxy \
-            $WEAVEPROXY_DOCKER_ARGS $EXEC_IMAGE $PROXY_ARGS)
-        wait_for_status_ip $PROXY_CONTAINER_NAME 127.0.0.1 $PROXY_PORT
-        echo $PROXY_CONTAINER
+
+        # TODO: Shouldn't need to pass these envVars expicitly, right?
+        EXEC_IMAGE="$EXEC_IMAGE" \
+          DOCKER_CLIENT_ARGS="$DOCKER_CLIENT_ARGS" \
+          WEAVEPROXY_DOCKER_ARGS="$WEAVEPROXY_DOCKER_ARGS" \
+          /home/weave/weaveproxy --launch "$@"
         ;;
     connect)
         [ $# -gt 0 ] || usage
