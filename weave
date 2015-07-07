@@ -923,8 +923,8 @@ docker_client_args() {
 # TODO: Handle relative paths for args
 # TODO: Handle args with spaces
 tls_arg() {
-    PROXY_VOLUMES="$PROXY_VOLUMES -v $2:/home/weave/tls/$3.pem"
-    PROXY_ARGS="$PROXY_ARGS $1 /home/weave/tls/$3.pem"
+    PROXY_VOLUMES="$PROXY_VOLUMES -v $2:$2"
+    PROXY_ARGS="$PROXY_ARGS $1 $2"
 }
 
 proxy_args() {
@@ -948,25 +948,25 @@ proxy_args() {
             PROXY_ARGS="$PROXY_ARGS $1"
             ;;
           --tlscacert)
-            tls_arg "$1" "$2" ca
+            tls_arg "$1" "$2"
             shift
             ;;
           --tlscacert=*)
-            tls_arg "${1%%=*}" "${1#*=}" ca
+            tls_arg "${1%%=*}" "${1#*=}"
             ;;
           --tlscert)
-            tls_arg "$1" "$2" cert
+            tls_arg "$1" "$2"
             shift
             ;;
           --tlscert=*)
-            tls_arg "${1%%=*}" "${1#*=}" cert
+            tls_arg "${1%%=*}" "${1#*=}"
             ;;
           --tlskey)
-            tls_arg "$1" "$2" key
+            tls_arg "$1" "$2"
             shift
             ;;
           --tlskey=*)
-            tls_arg "${1%%=*}" "${1#*=}" key
+            tls_arg "${1%%=*}" "${1#*=}"
             ;;
           *)
             PROXY_ARGS="$PROXY_ARGS $1"
@@ -975,7 +975,9 @@ proxy_args() {
         shift
     done
 
-    if [ -z "$PROXY_HOST" -a -n "$CLIENT_TLS_ENABLED" -a -z "$PROXY_TLS_ENABLED" ]; then
+    ! command_exists proxyvolumes || PROXY_VOLUMES=${PROXY_VOLUMES:-$(proxyvolumes "$@")}
+
+    if [ -z "$PROXY_HOST" -a -n "$CLIENT_TLS_ENABLED" -a -z "$PROXY_VOLUMES" ]; then
       echo "When launching the proxy via TLS, -H and/or TLS options are required." >&2
       exit 1
     fi

@@ -15,8 +15,9 @@ SIGPROXY_EXE=prog/sigproxy/sigproxy
 WEAVEWAIT_EXE=prog/weavewait/weavewait
 NETCHECK_EXE=prog/netcheck/netcheck
 COVER_EXE=testing/cover/cover
+PROXYVOLUMES_EXE=prog/proxyvolumes/proxyvolumes
 
-EXES=$(WEAVER_EXE) $(SIGPROXY_EXE) $(WEAVEPROXY_EXE) $(WEAVEWAIT_EXE) $(NETCHECK_EXE) $(COVER_EXE)
+EXES=$(WEAVER_EXE) $(SIGPROXY_EXE) $(WEAVEPROXY_EXE) $(WEAVEWAIT_EXE) $(NETCHECK_EXE) $(COVER_EXE) $(PROXYVOLUMES_EXE)
 
 WEAVER_UPTODATE=.weaver.uptodate
 WEAVEEXEC_UPTODATE=.weaveexec.uptodate
@@ -80,16 +81,20 @@ $(WEAVEWAIT_EXE) $(SIGPROXY_EXE) $(COVER_EXE):
 	go get ./$(@D)
 	go build -o $@ ./$(@D)
 
+$(PROXYVOLUMES_EXE): proxy/*.go prog/proxyvolumes/main.go
+	go build -ldflags "-extldflags \"-static\"" -o $@ ./$(@D)
+
 $(WEAVER_UPTODATE): prog/weaver/Dockerfile $(WEAVER_EXE)
 	$(SUDO) docker build -t $(WEAVER_IMAGE) prog/weaver
 	touch $@
 
-$(WEAVEEXEC_UPTODATE): prog/weaveexec/Dockerfile $(DOCKER_DISTRIB) weave $(SIGPROXY_EXE) $(WEAVEPROXY_EXE) $(WEAVEWAIT_EXE) $(NETCHECK_EXE)
+$(WEAVEEXEC_UPTODATE): prog/weaveexec/Dockerfile $(DOCKER_DISTRIB) weave $(SIGPROXY_EXE) $(WEAVEPROXY_EXE) $(WEAVEWAIT_EXE) $(NETCHECK_EXE) $(PROXYVOLUMES_EXE)
 	cp weave prog/weaveexec/weave
 	cp $(SIGPROXY_EXE) prog/weaveexec/sigproxy
 	cp $(WEAVEPROXY_EXE) prog/weaveexec/weaveproxy
 	cp $(WEAVEWAIT_EXE) prog/weaveexec/weavewait
 	cp $(NETCHECK_EXE) prog/weaveexec/netcheck
+	cp $(PROXYVOLUMES_EXE) prog/weaveexec/proxyvolumes
 	cp $(DOCKER_DISTRIB) prog/weaveexec/docker.tgz
 	$(SUDO) docker build -t $(WEAVEEXEC_IMAGE) prog/weaveexec
 	touch $@
