@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -106,6 +107,7 @@ func (proxy *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (proxy *Proxy) ListenAndServe() {
 	listeners := []net.Listener{}
 	addrs := []string{}
+	sort.Strings(proxy.ListenAddrs)
 	for _, addr := range proxy.ListenAddrs {
 		listener, normalisedAddr, err := proxy.listen(addr)
 		if err != nil {
