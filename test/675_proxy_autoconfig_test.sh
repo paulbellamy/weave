@@ -45,8 +45,8 @@ run_on $HOST1 sudo start-stop-daemon --start --background \
 wait_for docker_tls_on $HOST1 ps
 
 # Boot proxy and check it uses dockers tls config
-run_on $HOST1 weave launch-router
-run_on $HOST1 weave launch-proxy
+run_on $HOST1 sudo weave launch-router
+run_on $HOST1 sudo weave launch-proxy
 
 assert_raises "proxy docker_tls_on $HOST1 ps"
 
