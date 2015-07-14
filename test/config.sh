@@ -99,6 +99,13 @@ docker_on() {
     docker -H tcp://$host:$DOCKER_PORT "$@"
 }
 
+docker_tls_on() {
+    host=$1
+    shift 1
+    [ -z "$DEBUG" ] || greyly echo "Docker (TLS) on $host:$DOCKER_PORT: $@" >&2
+    DOCKER_CERT_PATH="$DIR/tls" docker --tlsverify -H tcp://$host:$DOCKER_PORT "$@"
+}
+
 proxy() {
     DOCKER_PORT=12375 "$@"
 }
@@ -189,6 +196,13 @@ assert_dns_ptr_record() {
     assert "exec_on $1 $2 getent hosts $4 | tr -s ' '" "$4 $3"
 }
 
+# If the argument $1 is a funciton, call it with the remainder
+call_if_fn() {
+  f=$1
+  shift 1
+  [ "$(type -t $f)" != "function" ] || $f "$@"
+}
+
 start_suite() {
     for host in $HOSTS; do
         [ -z "$DEBUG" ] || echo "Cleaning up on $host: removing all containers and resetting weave"
@@ -196,9 +210,12 @@ start_suite() {
         rm_containers $host $(docker_on $host ps -aq 2>/dev/null)
     done
     whitely echo "$@"
+    call_if_fn before_suite
 }
 
 end_suite() {
+    call_if_fn after_suite
+    unset -f before_suite after_suite
     whitely assert_end
     for host in $HOSTS; do
         stop_router_on $host
